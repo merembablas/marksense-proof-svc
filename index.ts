@@ -119,7 +119,7 @@ app.post('/generateUSDMTradeProof', async (req: Request, res: Response) => {
         [
           {
               "type": "regex",
-              "value": `"realizedPnl":\s*"(?<pnl>[-+]?[0-9]*\.?[0-9]+)".*"symbol":\s*"(?<symbol>.*?)".*"time":\s*(?<time>\d+)`
+              "value": `"realizedPnl":\\s*"(?<pnl>[-+]?[0-9]*\.?[0-9]+)"`
           }
         ],
         req.body.api_key
