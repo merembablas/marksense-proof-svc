@@ -1,62 +1,169 @@
 import express, { Request, Response } from 'express';
+import crypto from 'crypto';
+import axios from 'axios';
 import { ReclaimClient } from '@reclaimprotocol/zk-fetch';
 import { Reclaim } from '@reclaimprotocol/js-sdk';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Initialize the ReclaimClient with the app id and app secret (you can get these from the Reclaim dashboard - https://dev.reclaimprotocol.org/) 
 const reclaimClient = new ReclaimClient(process.env.APP_ID!, process.env.APP_SECRET!);
 const app = express();
 
+app.set('view engine', 'ejs');
+app.use(express.static('public'));
+app.use(express.json());
 
-app.get('/', (_: Request, res: Response) => {
-    res.send('gm gm! api is running');
+const API_KEY = process.env.BINANCE_API_KEY!;
+const API_SECRET = process.env.BINANCE_API_SECRET!;
+
+
+type Success<T> = {
+  success: true;
+  data: T;
+};
+
+type Failure = {
+  success: false;
+  error: string;
+};
+
+type Result<T> = Success<T> | Failure;
+
+// Function to create a HMAC SHA256 signature
+function createSignature(queryString: string, secret: string) {
+  return crypto.createHmac('sha256', secret).update(queryString).digest('hex');
+}
+
+async function generateProof(url: string, matches: { type: "regex" | "contains"; value: string; }[], apiKey: string): Promise<Result<any>> {
+  try{
+    const proof = await reclaimClient.zkFetch(url, {
+      method: 'GET',
+    }, {
+      headers : {
+        'X-MBX-APIKEY': apiKey
+      },
+      responseMatches: matches
+    });
+  
+    if(!proof) {
+      return {
+        success: false,
+        error: "Failed to generate proof"
+      }
+    }
+
+    const isValid = await Reclaim.verifySignedProof(proof);
+    if(!isValid) {
+      return {
+        success: false,
+        error: "Proof is invalid"
+      }
+    }
+
+    const proofData = await Reclaim.transformForOnchain(proof);
+  
+    return {
+      success: true,
+      data: { transformedProof: proofData, proof }
+    };
+  }
+  catch(err){
+    let errorMessage: string;
+
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else {
+      errorMessage = String(err);
+    }
+
+    return {
+      success: false,
+      error: errorMessage
+    }
+  }
+}
+
+app.get('/', async (req: Request, res: Response) => {
+
+  const endpoint = '/fapi/v1/userTrades';
+  const timestamp = Date.now();
+
+  // Query string parameters
+  const queryString = `timestamp=${timestamp}&symbol=${req.query.symbol}`;
+  const signature = createSignature(queryString, API_SECRET);
+
+  try {
+    const response = await axios.get(`https://fapi.binance.com${endpoint}?${queryString}&signature=${signature}`, {
+      headers: {
+        'X-MBX-APIKEY': API_KEY
+      }
+    });
+
+    //return res.send(response.data);
+    return res.render('trades', { trades: response.data });
+
+  } catch (error) {
+    return res.status(500).json({ error: error });
+  }
 });
 
-app.get('/generateProof', async (_: Request, res: Response) => {
+app.post('/generateUSDMTradeProof', async (req: Request, res: Response) => {
     try{
-        // URL to fetch the data from - in this case, the price of Ethereum in USD from the CoinGecko API
-        const url = 'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd';
-        /* 
-        * Fetch the data from the API and generate a proof for the response. 
-        * The proof will contain the USD price of Ethereum. 
-        */ 
-        const proof = await reclaimClient.zkFetch(url, {
-          // public options for the fetch request 
-          method: 'GET',
-        }, {
-          // options for the proof generation
-          responseMatches: [
-            /* 
-            * The proof will match the response body with the regex pattern (search for the price of ethereum in the response body 
-            the regex will capture the price in the named group 'price').
-            * to extract the price of Ethereum in USD. (e.g. {"ethereum":{"usd":3000}}) 
-            */ 
-            {
-                "type": "regex",
-                "value": "\\{\"ethereum\":\\{\"usd\":(?<price>[\\d\\.]+)\\}\\}"
-            }
-          ],
-        });
+      const endpoint = '/fapi/v1/userTrades';
+      const timestamp = Date.now();
+      const queryString = `timestamp=${timestamp}&symbol=${req.body.symbol}&orderId=${req.body.order_id}`;
+      const signature = createSignature(queryString, req.body.api_secret);
+  
+      const result = await generateProof(
+        `https://fapi.binance.com${endpoint}?${queryString}&signature=${signature}`,
+        [
+          {
+              "type": "regex",
+              "value": `"realizedPnl":\s*"(?<pnl>[-+]?[0-9]*\.?[0-9]+)".*"symbol":\s*"(?<symbol>.*?)".*"time":\s*(?<time>\d+)`
+          }
+        ],
+        req.body.api_key
+      );
+  
+      if (!result.success) {
+        return res.status(400).send(result.error);
+      }
       
-        if(!proof) {
-          return res.status(400).send('Failed to generate proof');
-        }
-        // Verify the proof
-        const isValid = await Reclaim.verifySignedProof(proof);
-        if(!isValid) {
-          return res.status(400).send('Proof is invalid');
-        }
-        // Transform the proof data to be used on-chain (for the contract)
-         const proofData = await Reclaim.transformForOnchain(proof);
-        return res.status(200).json({ transformedProof: proofData, proof });
-    }
-    catch(e){
+      return res.status(200).json(result.data);
+    } catch(e){
         console.log(e);
         return res.status(500).send(e);
     }
 })
 
+app.post('/generateAssetProof', async (req: Request, res: Response) => {
+  try{
+    const endpoint = '/api/v3/account';
+    const timestamp = Date.now();
+    const queryString = `timestamp=${timestamp}`;
+    const signature = createSignature(queryString, req.body.api_secret);
+
+    const result = await generateProof(
+      `https://api.binance.com${endpoint}?${queryString}&signature=${signature}`,
+      [
+        {
+            "type": "regex",
+            "value": `"asset":\\s*"${req.body.asset}",\\s*"free":\\s*"(?<amount>[\\d.]+)"`
+        }
+      ],
+      req.body.api_key
+    );
+
+    if (!result.success) {
+      return res.status(400).send(result.error);
+    }
+    
+    return res.status(200).json(result.data);
+  } catch(e){
+      console.log(e);
+      return res.status(500).send(e);
+  }
+})
 
 
 const PORT = process.env.PORT || 8080;

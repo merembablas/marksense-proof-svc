@@ -1,5 +1,5 @@
 {
-  "name": "zkfetch-express-example",
+  "name": "marksense-proof-svc",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -13,7 +13,11 @@
   "dependencies": {
     "@reclaimprotocol/js-sdk": "^1.3.11",
     "@reclaimprotocol/zk-fetch": "0.1.4",
-    "express": "^4.19.2"
+    "axios": "^1.7.7",
+    "crypto": "^1.0.1",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "js-base64": "^3.7.7"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

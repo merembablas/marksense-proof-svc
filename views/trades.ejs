@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Binance Trades</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <h1>Recent Future Trades</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>Order ID</th>
+        <th>Symbol</th>
+        <th>Price</th>
+        <th>Realized Pnl</th>
+        <th>Time</th>
+        <th>Proof</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% trades.forEach(trade => { %>
+        <tr>
+          <td><%= trade.orderId %></td>
+          <td><%= trade.symbol %></td>
+          <td><%= trade.price %></td>
+          <td><%= trade.realizedPnl %></td>
+          <td><%= new Date(trade.time).toLocaleString() %></td>
+          <td><button onclick="window.location.href = '/generateProof?symbol=<%= trade.symbol %>&orderId=<%= trade.orderId %>'">Create Proof</button></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</body>
+</html>
