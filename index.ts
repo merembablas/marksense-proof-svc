@@ -83,6 +83,54 @@ async function generateProof(url: string, matches: { type: "regex" | "contains";
   }
 }
 
+async function generateProofWithoutContext(url: string, apiKey: string): Promise<Result<any>> {
+  try{
+    const proof = await reclaimClient.zkFetch(url, {
+      method: 'GET',
+    }, {
+      headers : {
+        'X-MBX-APIKEY': apiKey
+      },
+    });
+  
+    if(!proof) {
+      return {
+        success: false,
+        error: "Failed to generate proof"
+      }
+    }
+
+    const isValid = await Reclaim.verifySignedProof(proof);
+    if(!isValid) {
+      return {
+        success: false,
+        error: "Proof is invalid"
+      }
+    }
+
+    const proofData = await Reclaim.transformForOnchain(proof);
+  
+    return {
+      success: true,
+      data: { transformedProof: proofData, proof }
+    };
+  }
+  catch(err){
+    let errorMessage: string;
+
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else {
+      errorMessage = String(err);
+    }
+
+    return {
+      success: false,
+      error: errorMessage
+    }
+  }
+}
+
 app.get('/', async (req: Request, res: Response) => {
 
   const endpoint = '/fapi/v1/userTrades';
@@ -114,14 +162,8 @@ app.post('/generateUSDMTradeProof', async (req: Request, res: Response) => {
       const queryString = `timestamp=${timestamp}&symbol=${req.body.symbol}&orderId=${req.body.order_id}`;
       const signature = createSignature(queryString, req.body.api_secret);
   
-      const result = await generateProof(
+      const result = await generateProofWithoutContext(
         `https://fapi.binance.com${endpoint}?${queryString}&signature=${signature}`,
-        [
-          {
-              "type": "regex",
-              "value": `"realizedPnl":\\s*"(?<pnl>[-+]?[0-9]*\.?[0-9]+)"`
-          }
-        ],
         req.body.api_key
       );
   
