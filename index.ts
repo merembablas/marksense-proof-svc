@@ -117,7 +117,7 @@ async function generateProofWithoutContext(url: string, apiKey: string): Promise
   }
   catch(err){
     let errorMessage: string;
-
+    console.log(err);
     if (err instanceof Error) {
       errorMessage = err.message;
     } else {
@@ -137,7 +137,7 @@ app.get('/', async (req: Request, res: Response) => {
   const timestamp = Date.now();
 
   // Query string parameters
-  const queryString = `timestamp=${timestamp}&symbol=${req.query.symbol}`;
+  const queryString = `timestamp=${timestamp}&symbol=${req.query.symbol}&recvWindow=60000`;
   const signature = createSignature(queryString, API_SECRET);
 
   try {
@@ -159,15 +159,22 @@ app.post('/generateUSDMTradeProof', async (req: Request, res: Response) => {
     try{
       const endpoint = '/fapi/v1/userTrades';
       const timestamp = Date.now();
-      const queryString = `timestamp=${timestamp}&symbol=${req.body.symbol}&orderId=${req.body.order_id}`;
+      const queryString = `timestamp=${timestamp}&symbol=${req.body.symbol}&orderId=${req.body.order_id}&recvWindow=60000`;
       const signature = createSignature(queryString, req.body.api_secret);
   
-      const result = await generateProofWithoutContext(
+      const result = await generateProof(
         `https://fapi.binance.com${endpoint}?${queryString}&signature=${signature}`,
+        [
+          {
+              "type": "regex",
+              "value": `"orderId":\\s*(?<orderId>[\\d.]+)`
+          }
+        ],
         req.body.api_key
       );
   
       if (!result.success) {
+        console.log(result);
         return res.status(400).send(result.error);
       }
       
@@ -204,6 +211,50 @@ app.post('/generateAssetProof', async (req: Request, res: Response) => {
   } catch(e){
       console.log(e);
       return res.status(500).send(e);
+  }
+})
+
+app.post('/debugproxy', async (req: Request, res: Response) => {
+  try{
+    const proof = await reclaimClient.zkFetch("https://browserleaks.com/ip", {
+      method: 'GET',
+    });
+  
+    if(!proof) {
+      return {
+        success: false,
+        error: "Failed to generate proof"
+      }
+    }
+
+    const isValid = await Reclaim.verifySignedProof(proof);
+    if(!isValid) {
+      return {
+        success: false,
+        error: "Proof is invalid"
+      }
+    }
+
+    const proofData = await Reclaim.transformForOnchain(proof);
+  
+    return {
+      success: true,
+      data: { transformedProof: proofData, proof }
+    };
+  }
+  catch(err){
+    let errorMessage: string;
+    console.log(err);
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else {
+      errorMessage = String(err);
+    }
+
+    return {
+      success: false,
+      error: errorMessage
+    }
   }
 })
 
