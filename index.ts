@@ -43,7 +43,9 @@ async function generateProof(url: string, matches: { type: "regex" | "contains";
         'X-MBX-APIKEY': apiKey
       },
       responseMatches: matches
-    });
+    },
+    5, 2000
+  );
   
     if(!proof) {
       return {
