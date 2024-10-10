@@ -44,7 +44,7 @@ async function generateProof(url: string, matches: { type: "regex" | "contains";
       },
       responseMatches: matches
     },
-    5, 2000
+    20, 3000
   );
   
     if(!proof) {
