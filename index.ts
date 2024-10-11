@@ -6,7 +6,7 @@ import { Reclaim } from '@reclaimprotocol/js-sdk';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const reclaimClient = new ReclaimClient(process.env.APP_ID!, process.env.APP_SECRET!);
+const reclaimClient = new ReclaimClient(process.env.APP_ID!, process.env.APP_SECRET!, true);
 const app = express();
 
 app.set('view engine', 'ejs');
@@ -44,7 +44,7 @@ async function generateProof(url: string, matches: { type: "regex" | "contains";
       },
       responseMatches: matches
     },
-    10, 6000
+    2, 6000
   );
   
     if(!proof) {
@@ -71,7 +71,7 @@ async function generateProof(url: string, matches: { type: "regex" | "contains";
   }
   catch(err){
     let errorMessage: string;
-
+    console.log(err);
     if (err instanceof Error) {
       errorMessage = err.message;
     } else {
@@ -136,7 +136,20 @@ async function generateProofWithoutContext(url: string, apiKey: string): Promise
 app.get('/', async (req: Request, res: Response) => {
 
   const endpoint = '/fapi/v1/userTrades';
-  const timestamp = Date.now();
+  const serverTimeEndpoint = '/fapi/v1/time';
+  let servTime = Date.now();
+
+  try {
+    const timeResp = await axios.get(`https://fapi.binance.com${serverTimeEndpoint}`);
+
+    
+    servTime = timeResp.data.serverTime;
+ 
+  } catch (error) {
+    return res.status(500).json({ error: error });
+  }
+
+  const timestamp = servTime;
 
   // Query string parameters
   const queryString = `timestamp=${timestamp}&symbol=${req.query.symbol}&recvWindow=60000`;
@@ -160,7 +173,18 @@ app.get('/', async (req: Request, res: Response) => {
 app.post('/generateUSDMTradeProof', async (req: Request, res: Response) => {
     try{
       const endpoint = '/fapi/v1/userTrades';
-      const timestamp = Date.now();
+      const serverTimeEndpoint = '/fapi/v1/time';
+      let servTime = Date.now();
+
+      try {
+        const timeResp = await axios.get(`https://fapi.binance.com${serverTimeEndpoint}`);
+        servTime = timeResp.data.serverTime;
+     
+      } catch (error) {
+        
+      }
+
+      const timestamp = servTime;
       const queryString = `timestamp=${timestamp}&symbol=${req.body.symbol}&orderId=${req.body.order_id}&recvWindow=60000`;
       const signature = createSignature(queryString, req.body.api_secret);
   
@@ -169,7 +193,7 @@ app.post('/generateUSDMTradeProof', async (req: Request, res: Response) => {
         [
           {
               "type": "regex",
-              "value": `"orderId":\\s*(?<orderId>[\\d.]+)`
+              "value": `(?<orderId>[\\d.]+)`
           }
         ],
         req.body.api_key
