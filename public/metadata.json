@@ -1,0 +1,66 @@
+{
+  "name": "Proof of PnL #01J9Y1P3THAC3RMF79TNZ0WTB7",
+  "description": "Binance Future Trade Proof of PnL",
+  "image": "https://marksense.tech/storage/uploads/2/canvasFuture.png",
+  "external_url": "https://marksense.tech/app/trade/01J9Y1P3THAC3RMF79TNZ0WTB7",
+  "attributes": [
+    {
+      "trait_type": "exchange",
+      "value": "Binance"
+    },
+    {
+      "trait_type": "symbol",
+      "value": "BEAMXUSDT"
+    },
+    {
+      "trait_type": "pnl",
+      "value": "-100"
+    },
+    {
+      "trait_type": "time",
+      "value": "1728653922"
+    }
+  ],
+  "proof": {
+    "transformedProof": {
+      "claimInfo": {
+        "context": "{\"extractedParameters\":{\"orderId\":\"1601999843\"},\"providerHash\":\"0xc835bcf98f3c6e0851561d729d020ebd3db122dcf9ae8e81f953426a416095c4\"}",
+        "parameters": "{\"body\":\"\",\"method\":\"GET\",\"responseMatches\":[{\"type\":\"regex\",\"value\":\"\\\"orderId\\\":\\\\s*(?<orderId>[\\\\d.]+)\"}],\"responseRedactions\":[],\"url\":\"https://fapi.binance.com/fapi/v1/userTrades?timestamp=1728653921406&symbol=BEAMXUSDT&orderId=1601999843&recvWindow=60000&signature=995904dd89a64b5d955273acdf08f0044839eec5093b505181c6cb0f903825df\"}",
+        "provider": "http"
+      },
+      "signedClaim": {
+        "claim": {
+          "epoch": 1,
+          "identifier": "0x10fb2f4398dee3fd72c194cba8b6e7e06008fac4427d9cbbc277f863ab445e9b",
+          "owner": "0xad0d5cda29271a3ee858d0c938cea18aab865409",
+          "timestampS": 1728653922
+        },
+        "signatures": [
+          "0x6484b8ae8aa48e39b0d37251163be6cb474b392c922f2bfac7b46ee7fbcb37c9160265b88472db1f28059e2a3975bb2df00bd8a51ecc6d77bf019c795fd6bc4d1b"
+        ]
+      }
+    },
+    "proof": {
+      "claimData": {
+        "provider": "http",
+        "parameters": "{\"body\":\"\",\"method\":\"GET\",\"responseMatches\":[{\"type\":\"regex\",\"value\":\"\\\"orderId\\\":\\\\s*(?<orderId>[\\\\d.]+)\"}],\"responseRedactions\":[],\"url\":\"https://fapi.binance.com/fapi/v1/userTrades?timestamp=1728653921406&symbol=BEAMXUSDT&orderId=1601999843&recvWindow=60000&signature=995904dd89a64b5d955273acdf08f0044839eec5093b505181c6cb0f903825df\"}",
+        "owner": "0xad0d5cda29271a3ee858d0c938cea18aab865409",
+        "timestampS": 1728653922,
+        "context": "{\"extractedParameters\":{\"orderId\":\"1601999843\"},\"providerHash\":\"0xc835bcf98f3c6e0851561d729d020ebd3db122dcf9ae8e81f953426a416095c4\"}",
+        "identifier": "0x10fb2f4398dee3fd72c194cba8b6e7e06008fac4427d9cbbc277f863ab445e9b",
+        "epoch": 1
+      },
+      "identifier": "0x10fb2f4398dee3fd72c194cba8b6e7e06008fac4427d9cbbc277f863ab445e9b",
+      "signatures": [
+        "0x6484b8ae8aa48e39b0d37251163be6cb474b392c922f2bfac7b46ee7fbcb37c9160265b88472db1f28059e2a3975bb2df00bd8a51ecc6d77bf019c795fd6bc4d1b"
+      ],
+      "extractedParameterValues": { "orderId": "1601999843" },
+      "witnesses": [
+        {
+          "id": "0x307832343438393735373233363865616466363562666263356165633938643865353434336139303732",
+          "url": "wss://witness.reclaimprotocol.org/ws"
+        }
+      ]
+    }
+  }
+}
