@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { ReclaimClient } from '@reclaimprotocol/zk-fetch';
 import { Reclaim } from '@reclaimprotocol/js-sdk';
 import dotenv from 'dotenv';
@@ -29,6 +31,35 @@ type Failure = {
 
 type Result<T> = Success<T> | Failure;
 
+
+const cacheDir = path.join(__dirname, 'cache');
+
+if (!fs.existsSync(cacheDir)) {
+  fs.mkdirSync(cacheDir);
+}
+
+const generateCacheKey = (apiKey: string, symbol: string, orderId: string) => {
+  const query = "" + apiKey + symbol + orderId;
+  return crypto.createHash('md5').update(query).digest('hex') + '.json';
+};
+
+const readCache = (cacheFile: string) => {
+  const filePath = path.join(cacheDir, cacheFile);
+  if (fs.existsSync(filePath)) {
+    const data = fs.readFileSync(filePath);
+    return JSON.parse(data.toString());
+  }
+  return null;
+};
+
+const writeCache = (cacheFile: string, data: any) => {
+  const filePath = path.join(cacheDir, cacheFile);
+  fs.writeFileSync(filePath, JSON.stringify({
+    data,
+    cachedAt: Date.now()
+  }));
+};
+
 // Function to create a HMAC SHA256 signature
 function createSignature(queryString: string, secret: string) {
   return crypto.createHmac('sha256', secret).update(queryString).digest('hex');
@@ -44,7 +75,7 @@ async function generateProof(url: string, matches: { type: "regex" | "contains";
       },
       responseMatches: matches
     },
-    3, 5000
+    10, 3000
   );
   
     if(!proof) {
@@ -141,8 +172,6 @@ app.get('/', async (req: Request, res: Response) => {
 
   try {
     const timeResp = await axios.get(`https://fapi.binance.com${serverTimeEndpoint}`);
-
-    
     servTime = timeResp.data.serverTime;
  
   } catch (error) {
@@ -152,7 +181,7 @@ app.get('/', async (req: Request, res: Response) => {
   const timestamp = servTime;
 
   // Query string parameters
-  const queryString = `timestamp=${timestamp}&symbol=${req.query.symbol}&orderId=${req.query.order_id}&recvWindow=60000`;
+  const queryString = `timestamp=${timestamp}&symbol=${req.query.symbol}&recvWindow=60000`;
   const signature = createSignature(queryString, API_SECRET);
 
   try {
@@ -172,44 +201,54 @@ app.get('/', async (req: Request, res: Response) => {
 });
 
 app.post('/generateUSDMTradeProof', async (req: Request, res: Response) => {
-    try{
-      const endpoint = '/fapi/v1/userTrades';
-      const serverTimeEndpoint = '/fapi/v1/time';
-      let servTime = Date.now();
 
-      try {
-        const timeResp = await axios.get(`https://fapi.binance.com${serverTimeEndpoint}`);
-        servTime = timeResp.data.serverTime;
-     
-      } catch (error) {
-        
-      }
+  const cacheKey = generateCacheKey(req.body.api_key, req.body.symbol, req.body.order_id);
+  const cache = readCache(cacheKey);
 
-      const timestamp = servTime;
-      const queryString = `timestamp=${timestamp}&symbol=${req.body.symbol}&orderId=${req.body.order_id}&recvWindow=60000`;
-      const signature = createSignature(queryString, req.body.api_secret);
+  if (cache) {
+    return res.status(200).json(cache.data);
+  }
   
-      const result = await generateProof(
-        `https://fapi.binance.com${endpoint}?${queryString}&signature=${signature}`,
-        [
-          {
-              "type": "regex",
-              "value": `"orderId":\\s*(?<orderId>[\\d.]+)`
-          }
-        ],
-        req.body.api_key
-      );
-  
-      if (!result.success) {
-        console.log(result);
-        return res.status(400).send(result.error);
-      }
+  try{
+    const endpoint = '/fapi/v1/userTrades';
+    const serverTimeEndpoint = '/fapi/v1/time';
+    let servTime = Date.now();
+
+    try {
+      const timeResp = await axios.get(`https://fapi.binance.com${serverTimeEndpoint}`);
+      servTime = timeResp.data.serverTime;
+    
+    } catch (error) {
       
-      return res.status(200).json(result.data);
-    } catch(e){
-        console.log(e);
-        return res.status(500).send(e);
     }
+
+    const timestamp = servTime;
+    const queryString = `timestamp=${timestamp}&symbol=${req.body.symbol}&orderId=${req.body.order_id}&recvWindow=60000`;
+    const signature = createSignature(queryString, req.body.api_secret);
+
+    const result = await generateProof(
+      `https://fapi.binance.com${endpoint}?${queryString}&signature=${signature}`,
+      [
+        {
+            "type": "regex",
+            "value": `"orderId":\\s*(?<orderId>[\\d.]+)`
+        }
+      ],
+      req.body.api_key
+    );
+
+    if (!result.success) {
+      console.log(result);
+      return res.status(400).send(result.error);
+    }
+
+    writeCache(cacheKey, result.data);
+    
+    return res.status(200).json(result.data);
+  } catch(e){
+      console.log(e);
+      return res.status(500).send(e);
+  }
 })
 
 app.post('/generateAssetProof', async (req: Request, res: Response) => {
