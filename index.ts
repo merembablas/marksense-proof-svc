@@ -44,7 +44,7 @@ async function generateProof(url: string, matches: { type: "regex" | "contains";
       },
       responseMatches: matches
     },
-    2, 6000
+    3, 5000
   );
   
     if(!proof) {
@@ -152,7 +152,7 @@ app.get('/', async (req: Request, res: Response) => {
   const timestamp = servTime;
 
   // Query string parameters
-  const queryString = `timestamp=${timestamp}&symbol=${req.query.symbol}&recvWindow=60000`;
+  const queryString = `timestamp=${timestamp}&symbol=${req.query.symbol}&orderId=${req.query.order_id}&recvWindow=60000`;
   const signature = createSignature(queryString, API_SECRET);
 
   try {
@@ -161,11 +161,12 @@ app.get('/', async (req: Request, res: Response) => {
         'X-MBX-APIKEY': API_KEY
       }
     });
-
+    console.log(JSON.stringify(response.data));
     //return res.send(response.data);
     return res.render('trades', { trades: response.data });
 
   } catch (error) {
+    console.log(error);
     return res.status(500).json({ error: error });
   }
 });
@@ -193,7 +194,7 @@ app.post('/generateUSDMTradeProof', async (req: Request, res: Response) => {
         [
           {
               "type": "regex",
-              "value": `(?<orderId>[\\d.]+)`
+              "value": `"orderId":\\s*(?<orderId>[\\d.]+)`
           }
         ],
         req.body.api_key
